@@ -135,6 +135,7 @@ public abstract class RestoreOnlyRepository extends AbstractLifecycleComponent i
         Collection<SnapshotId> snapshotIds,
         long repositoryStateId,
         Version repositoryMetaVersion,
+        RemoteStoreMDLockManagerFactory remoteStoreMDLockManagerFactory,
         ActionListener<RepositoryData> listener
     ) {
         listener.onResponse(null);

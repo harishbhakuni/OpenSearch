@@ -316,9 +316,10 @@ class S3Repository extends MeteredBlobStoreRepository {
         Collection<SnapshotId> snapshotIds,
         long repositoryStateId,
         Version repositoryMetaVersion,
+        RemoteStoreMDLockManagerFactory remoteStoreMDLockManagerFactory,
         ActionListener<RepositoryData> listener
     ) {
-        super.deleteSnapshots(snapshotIds, repositoryStateId, repositoryMetaVersion, listener);
+        super.deleteSnapshots(snapshotIds, repositoryStateId, repositoryMetaVersion, remoteStoreMDLockManagerFactory, listener);
     }
 
     @Override

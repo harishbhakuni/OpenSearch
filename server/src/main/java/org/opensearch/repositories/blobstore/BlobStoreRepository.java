@@ -735,6 +735,7 @@ public abstract class BlobStoreRepository extends AbstractLifecycleComponent imp
         Collection<SnapshotId> snapshotIds,
         long repositoryStateId,
         Version repositoryMetaVersion,
+        RemoteStoreMDLockManagerFactory remoteStoreMDLockManagerFactory,
         ActionListener<RepositoryData> listener
     ) {
         if (isReadOnly()) {
@@ -755,6 +756,7 @@ public abstract class BlobStoreRepository extends AbstractLifecycleComponent imp
                         rootBlobs,
                         repositoryData,
                         repositoryMetaVersion,
+                        remoteStoreMDLockManagerFactory,
                         listener
                     );
                 }
@@ -834,6 +836,7 @@ public abstract class BlobStoreRepository extends AbstractLifecycleComponent imp
         Map<String, BlobMetadata> rootBlobs,
         RepositoryData repositoryData,
         Version repoMetaVersion,
+        RemoteStoreMDLockManagerFactory remoteStoreMDLockManagerFactory,
         ActionListener<RepositoryData> listener
     ) {
         // First write the new shard state metadata (with the removed snapshot) and compute deletion targets
@@ -868,7 +871,8 @@ public abstract class BlobStoreRepository extends AbstractLifecycleComponent imp
                 ActionListener.wrap(() -> listener.onResponse(updatedRepoData)),
                 2
             );
-            cleanupUnlinkedRootAndIndicesBlobs(snapshotIds, foundIndices, rootBlobs, updatedRepoData, afterCleanupsListener);
+            cleanupUnlinkedRootAndIndicesBlobs(snapshotIds, foundIndices, rootBlobs, updatedRepoData,
+                repositoryData, remoteStoreMDLockManagerFactory, afterCleanupsListener);
             asyncCleanupUnlinkedShardLevelBlobs(
                 repositoryData,
                 snapshotIds,
@@ -883,8 +887,16 @@ public abstract class BlobStoreRepository extends AbstractLifecycleComponent imp
         Map<String, BlobContainer> foundIndices,
         Map<String, BlobMetadata> rootBlobs,
         RepositoryData updatedRepoData,
+        RepositoryData oldRepoData,
+        RemoteStoreMDLockManagerFactory remoteStoreMDLockManagerFactory,
         ActionListener<Void> listener
     ) {
+        releaseResourceLockFiles(
+            deletedSnapshots,
+            oldRepoData,
+            remoteStoreMDLockManagerFactory,
+            listener
+        );
         cleanupStaleBlobs(deletedSnapshots, foundIndices, rootBlobs, updatedRepoData, ActionListener.map(listener, ignored -> null));
     }
 
@@ -1029,17 +1041,23 @@ public abstract class BlobStoreRepository extends AbstractLifecycleComponent imp
                             final Set<String> blobs = shardContainer.listBlobs().keySet();
                             final BlobStoreIndexShardSnapshots blobStoreIndexShardSnapshots;
                             final long newGen;
-                            if (useUUIDs) {
+                            if (shardContainer.listBlobsByPrefix(SNAPSHOT_INDEX_PREFIX).size() > 0) {
+                                if (useUUIDs) {
+                                    newGen = -1L;
+                                    blobStoreIndexShardSnapshots = buildBlobStoreIndexShardSnapshots(
+                                        blobs,
+                                        shardContainer,
+                                        oldRepositoryData.shardGenerations().getShardGen(indexId, finalShardId)
+                                    ).v1();
+                                } else {
+                                    Tuple<BlobStoreIndexShardSnapshots, Long> tuple = buildBlobStoreIndexShardSnapshots(blobs, shardContainer);
+                                    newGen = tuple.v2() + 1;
+                                    blobStoreIndexShardSnapshots = tuple.v1();
+                                }
+                            }
+                            else {
                                 newGen = -1L;
-                                blobStoreIndexShardSnapshots = buildBlobStoreIndexShardSnapshots(
-                                    blobs,
-                                    shardContainer,
-                                    oldRepositoryData.shardGenerations().getShardGen(indexId, finalShardId)
-                                ).v1();
-                            } else {
-                                Tuple<BlobStoreIndexShardSnapshots, Long> tuple = buildBlobStoreIndexShardSnapshots(blobs, shardContainer);
-                                newGen = tuple.v2() + 1;
-                                blobStoreIndexShardSnapshots = tuple.v1();
+                                blobStoreIndexShardSnapshots = BlobStoreIndexShardSnapshots.EMPTY;
                             }
                             allShardsListener.onResponse(
                                 deleteFromShardSnapshotMeta(
@@ -1073,6 +1091,36 @@ public abstract class BlobStoreRepository extends AbstractLifecycleComponent imp
                     });
                 }
             }, deleteIndexMetadataListener::onFailure);
+        }
+    }
+
+    private void releaseResourceLockFiles (
+        Collection<SnapshotId> snapshotIds,
+        RepositoryData repositoryData,
+        RemoteStoreMDLockManagerFactory remoteStoreMDLockManagerFactory,
+        ActionListener<Void> onAllShardsCompleted
+    ){
+        for (SnapshotId snapshotId: snapshotIds) {
+            List<String> indices = this.getSnapshotInfo(snapshotId).indices();
+            List<IndexId> indexIds = repositoryData.resolveIndices(indices);
+            for (IndexId indexId: indexIds) {
+                try {
+                    IndexMetadata indexMetadata = this.getSnapshotIndexMetaData(repositoryData,
+                        snapshotId, indexId);
+                    if (this.getSnapshotInfo(snapshotId).isRemoteStoreInteropEnabled()
+                        && indexMetadata.getSettings().getAsBoolean(
+                        IndexMetadata.SETTING_REMOTE_STORE_ENABLED,
+                        false)) {
+                        String indexUUID = indexMetadata.getIndexUUID();
+                        String remoteStoreRepoForIndex = indexMetadata.getSettings().get(IndexMetadata.SETTING_REMOTE_STORE_REPOSITORY);
+                        RemoteStoreMDIndexLockManager remoteStoreMDLockManger = remoteStoreMDLockManagerFactory
+                            .newLockManager(remoteStoreRepoForIndex, indexUUID);
+                        remoteStoreMDLockManger.releaseLock(snapshotId.getUUID());
+                    }
+                } catch (IOException e) {
+                    onAllShardsCompleted.onFailure(e);
+                }
+            }
         }
     }
 
@@ -2944,16 +2992,18 @@ public abstract class BlobStoreRepository extends AbstractLifecycleComponent imp
         }
         String writtenGeneration = null;
         try {
-            if (newSnapshotsList.isEmpty()) {
+            if (survivingSnapshots.isEmpty()) {
                 return new ShardSnapshotMetaDeleteResult(indexId, snapshotShardId, ShardGenerations.DELETED_SHARD_GEN, blobs);
             } else {
                 final BlobStoreIndexShardSnapshots updatedSnapshots = new BlobStoreIndexShardSnapshots(newSnapshotsList);
-                if (indexGeneration < 0L) {
-                    writtenGeneration = UUIDs.randomBase64UUID();
-                    INDEX_SHARD_SNAPSHOTS_FORMAT.write(updatedSnapshots, shardContainer, writtenGeneration, compress);
-                } else {
-                    writtenGeneration = String.valueOf(indexGeneration);
-                    writeShardIndexBlobAtomic(shardContainer, indexGeneration, updatedSnapshots);
+                if (snapshots.snapshots().size() > 0) {
+                    if (indexGeneration < 0L) {
+                        writtenGeneration = UUIDs.randomBase64UUID();
+                        INDEX_SHARD_SNAPSHOTS_FORMAT.write(updatedSnapshots, shardContainer, writtenGeneration, compress);
+                    } else {
+                        writtenGeneration = String.valueOf(indexGeneration);
+                        writeShardIndexBlobAtomic(shardContainer, indexGeneration, updatedSnapshots);
+                    }
                 }
                 final Set<String> survivingSnapshotUUIDs = survivingSnapshots.stream().map(SnapshotId::getUUID).collect(Collectors.toSet());
                 return new ShardSnapshotMetaDeleteResult(
