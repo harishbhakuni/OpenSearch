@@ -124,9 +124,10 @@ public class FilterRepository implements Repository {
         Collection<SnapshotId> snapshotIds,
         long repositoryStateId,
         Version repositoryMetaVersion,
+        RemoteStoreMDLockManagerFactory remoteStoreMDLockManagerFactory,
         ActionListener<RepositoryData> listener
     ) {
-        in.deleteSnapshots(snapshotIds, repositoryStateId, repositoryMetaVersion, listener);
+        in.deleteSnapshots(snapshotIds, repositoryStateId, repositoryMetaVersion, remoteStoreMDLockManagerFactory, listener);
     }
 
     @Override

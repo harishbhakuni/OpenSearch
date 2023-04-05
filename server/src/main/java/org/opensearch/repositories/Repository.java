@@ -167,6 +167,7 @@ public interface Repository extends LifecycleComponent {
         Collection<SnapshotId> snapshotIds,
         long repositoryStateId,
         Version repositoryMetaVersion,
+        RemoteStoreMDLockManagerFactory remoteStoreMDLockManagerFactory,
         ActionListener<RepositoryData> listener
     );
 
