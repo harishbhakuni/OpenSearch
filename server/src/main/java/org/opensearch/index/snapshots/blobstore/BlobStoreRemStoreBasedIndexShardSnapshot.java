@@ -259,5 +259,16 @@ public class BlobStoreRemStoreBasedIndexShardSnapshot implements ToXContentFragm
         return 0;
     }
 
+    /**
+     * Creates a new instance has a different name and zero incremental file counts but is identical to this instance in terms of the files
+     * it references.
+     *
+     * @param targetSnapshotName target snapshot name
+     * @param startTime          time the clone operation on the repository was started
+     * @param time               time it took to create the clone
+     */
+    public BlobStoreRemStoreBasedIndexShardSnapshot asClone(String targetSnapshotName, long startTime, long time) {
+        return new BlobStoreRemStoreBasedIndexShardSnapshot(targetSnapshotName, indexVersion, remoteStoreMetadataFileName, startTime, time, 0, 0, indexUUID, remoteStoreRepository);
+    }
 
 }
