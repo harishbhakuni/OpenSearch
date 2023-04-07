@@ -153,12 +153,13 @@ public class SnapshotsInProgress extends AbstractNamedDiffable<Custom> implement
         List<IndexId> indices,
         long startTime,
         long repositoryStateId,
-        Version version
+        Version version,
+        boolean isRemoteStoreInteropEnabled
     ) {
         return new SnapshotsInProgress.Entry(
             snapshot,
             true,
-            false, // TODO: need to pull this value from the original snapshot, use whatever we set during snapshot create.
+            isRemoteStoreInteropEnabled,
             false,
             State.STARTED,
             indices,

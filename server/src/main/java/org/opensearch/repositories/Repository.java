@@ -340,6 +340,7 @@ public interface Repository extends LifecycleComponent {
         SnapshotId target,
         RepositoryShardId shardId,
         @Nullable String shardGeneration,
+        RemoteStoreMDLockManagerFactory remoteStoreMDLockManagerFactory,
         ActionListener<String> listener
     );
 
