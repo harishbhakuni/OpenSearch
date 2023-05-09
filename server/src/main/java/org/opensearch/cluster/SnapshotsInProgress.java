@@ -148,7 +148,8 @@ public class SnapshotsInProgress extends AbstractNamedDiffable<Custom> implement
         List<IndexId> indices,
         long startTime,
         long repositoryStateId,
-        Version version
+        Version version,
+        boolean isRemoteStoreInteropEnabled
     ) {
         return new SnapshotsInProgress.Entry(
             snapshot,
@@ -164,7 +165,8 @@ public class SnapshotsInProgress extends AbstractNamedDiffable<Custom> implement
             Collections.emptyMap(),
             version,
             source,
-            Map.of()
+            Map.of(),
+            isRemoteStoreInteropEnabled
         );
     }
 
