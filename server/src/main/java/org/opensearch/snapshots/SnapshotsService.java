@@ -90,6 +90,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.Index;
 import org.opensearch.index.shard.ShardId;
+import org.opensearch.index.store.lockmanager.RemoteStoreLockManagerFactory;
 import org.opensearch.repositories.IndexId;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.repositories.Repository;
@@ -2173,11 +2174,13 @@ public class SnapshotsService extends AbstractLifecycleComponent implements Clus
             assert currentlyFinalizing.contains(deleteEntry.repository());
             final List<SnapshotId> snapshotIds = deleteEntry.getSnapshots();
             assert deleteEntry.state() == SnapshotDeletionsInProgress.State.STARTED : "incorrect state for entry [" + deleteEntry + "]";
+            RemoteStoreLockManagerFactory remoteStoreLockManagerFactory = new RemoteStoreLockManagerFactory(() -> repositoriesService);
             repositoriesService.repository(deleteEntry.repository())
                 .deleteSnapshots(
                     snapshotIds,
                     repositoryData.getGenId(),
                     minCompatibleVersion(minNodeVersion, repositoryData, snapshotIds),
+                    remoteStoreLockManagerFactory,
                     ActionListener.wrap(updatedRepoData -> {
                         logger.info("snapshots {} deleted", snapshotIds);
                         removeSnapshotDeletionFromClusterState(deleteEntry, null, updatedRepoData);
