@@ -11,6 +11,7 @@ package org.opensearch.index.store.lockmanager;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.store.IOContext;
+import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
 import org.opensearch.index.store.RemoteBufferedOutputDirectory;
 
@@ -82,5 +83,26 @@ public class RemoteStoreMetadataLockManager implements RemoteStoreLockManager {
         assert lockInfo instanceof FileLockInfo : "lockInfo should be instance of FileLockInfo";
         Collection<String> lockFiles = lockDirectory.listFilesByPrefix(((FileLockInfo) lockInfo).getLockPrefix());
         return !lockFiles.isEmpty();
+    }
+
+    @Override
+    public void cloneLock(LockInfo originalLockInfo, LockInfo clonedLockInfo) throws IOException {
+        assert originalLockInfo instanceof ShardLockInfo : "originalLockInfo should be instance of ShardLockInfo";
+        assert clonedLockInfo instanceof ShardLockInfo: "clonedLockInfo should be instance of ShardLockInfo";
+        String originalResourceId = ((ShardLockInfo) originalLockInfo).getResourceId();
+        String clonedResourceId = ((ShardLockInfo) clonedLockInfo).getResourceId();
+        assert originalResourceId != null && clonedResourceId != null : "provided resourceIds should not be null";
+        String clonedLockExpiryTime = ((ShardLockInfo) clonedLockInfo).getExpiryTime();
+        String[] lockFiles = lockDirectory.listAll();
+        String lockNameForResource = ShardLockInfo.getLockNameForResource(lockFiles, originalResourceId);
+        ShardLockInfo originalLockData = readLockData(lockNameForResource);
+        acquire(ShardLockInfo.getLockInfoBuilder().withFileToLock(originalLockData.getFileToLock())
+            .withResourceId(clonedResourceId).withExpiryTime(clonedLockExpiryTime).build());
+    }
+
+    private ShardLockInfo readLockData(String lockName) throws IOException {
+        try (IndexInput indexInput = lockDirectory.openInput(lockName, IOContext.DEFAULT)) {
+            return ShardLockInfo.getLockFileInfoFromIndexInput(indexInput);
+        }
     }
 }

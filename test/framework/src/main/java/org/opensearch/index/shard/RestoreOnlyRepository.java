@@ -218,6 +218,7 @@ public abstract class RestoreOnlyRepository extends AbstractLifecycleComponent i
         SnapshotId target,
         RepositoryShardId repositoryShardId,
         String shardGeneration,
+        RemoteStoreLockManagerFactory remoteStoreLockManagerFactory,
         ActionListener<String> listener
     ) {
         throw new UnsupportedOperationException("Unsupported for restore-only repository");

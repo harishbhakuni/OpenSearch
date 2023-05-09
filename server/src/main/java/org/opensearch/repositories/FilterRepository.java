@@ -260,9 +260,10 @@ public class FilterRepository implements Repository {
         SnapshotId target,
         RepositoryShardId shardId,
         String shardGeneration,
+        RemoteStoreLockManagerFactory remoteStoreLockManagerFactory,
         ActionListener<String> listener
     ) {
-        in.cloneShardSnapshot(source, target, shardId, shardGeneration, listener);
+        in.cloneShardSnapshot(source, target, shardId, shardGeneration, remoteStoreLockManagerFactory, listener);
     }
 
     @Override
