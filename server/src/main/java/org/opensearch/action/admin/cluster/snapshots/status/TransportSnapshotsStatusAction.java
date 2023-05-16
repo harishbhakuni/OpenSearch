@@ -281,7 +281,7 @@ public class TransportSnapshotsStatusAction extends TransportClusterManagerNodeA
                             final boolean isRemoteIndexShard = indexMetadata.getSettings().getAsBoolean(
                                 IndexMetadata.SETTING_REMOTE_STORE_ENABLED,
                                 false) &&
-                                repository.getSnapshotInfo(snapshotId).isRemoteStoreInteropEnabled();
+                                repository.getSnapshotInfo(snapshotId).isRemoteStoreIndexShallowCopyEnabled();
                             shardStatus = new SnapshotIndexShardStatus(
                                 shardId,
                                 repository
@@ -460,7 +460,7 @@ public class TransportSnapshotsStatusAction extends TransportClusterManagerNodeA
                             final boolean isRemoteIndexShard = indexMetadata.getSettings().getAsBoolean(
                                 IndexMetadata.SETTING_REMOTE_STORE_ENABLED,
                                 false) &&
-                                repository.getSnapshotInfo(snapshotInfo.snapshotId()).isRemoteStoreInteropEnabled();
+                                repository.getSnapshotInfo(snapshotInfo.snapshotId()).isRemoteStoreIndexShallowCopyEnabled();
                             shardSnapshotStatus = repository.getShardSnapshotStatus(snapshotInfo.snapshotId(), indexId, shardId, isRemoteIndexShard);
                         }
                         shardStatus.put(shardId, shardSnapshotStatus);

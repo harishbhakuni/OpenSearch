@@ -15,9 +15,12 @@ import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
 import org.opensearch.index.store.RemoteBufferedOutputDirectory;
 
+import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A Class that implements Remote Store Lock Manager by creating lock files for the remote store files that needs to
@@ -87,22 +90,16 @@ public class RemoteStoreMetadataLockManager implements RemoteStoreLockManager {
 
     @Override
     public void cloneLock(LockInfo originalLockInfo, LockInfo clonedLockInfo) throws IOException {
-        assert originalLockInfo instanceof ShardLockInfo : "originalLockInfo should be instance of ShardLockInfo";
-        assert clonedLockInfo instanceof ShardLockInfo: "clonedLockInfo should be instance of ShardLockInfo";
-        String originalResourceId = ((ShardLockInfo) originalLockInfo).getResourceId();
-        String clonedResourceId = ((ShardLockInfo) clonedLockInfo).getResourceId();
+        assert originalLockInfo instanceof FileLockInfo : "originalLockInfo should be instance of ShardLockInfo";
+        assert clonedLockInfo instanceof FileLockInfo: "clonedLockInfo should be instance of ShardLockInfo";
+        String originalResourceId = ((FileLockInfo) originalLockInfo).getAcquirerId();
+        String clonedResourceId = ((FileLockInfo) clonedLockInfo).getAcquirerId();
         assert originalResourceId != null && clonedResourceId != null : "provided resourceIds should not be null";
-        String clonedLockExpiryTime = ((ShardLockInfo) clonedLockInfo).getExpiryTime();
         String[] lockFiles = lockDirectory.listAll();
-        String lockNameForResource = ShardLockInfo.getLockNameForResource(lockFiles, originalResourceId);
-        ShardLockInfo originalLockData = readLockData(lockNameForResource);
-        acquire(ShardLockInfo.getLockInfoBuilder().withFileToLock(originalLockData.getFileToLock())
-            .withResourceId(clonedResourceId).withExpiryTime(clonedLockExpiryTime).build());
-    }
-
-    private ShardLockInfo readLockData(String lockName) throws IOException {
-        try (IndexInput indexInput = lockDirectory.openInput(lockName, IOContext.DEFAULT)) {
-            return ShardLockInfo.getLockFileInfoFromIndexInput(indexInput);
-        }
+        List<String> lockNamesForAcquirer = ((FileLockInfo) originalLockInfo).getLocksForAcquirer(lockFiles);
+        String lockNameForAcquirer = lockNamesForAcquirer.get(0);
+        String fileToLockName = FileLockInfo.LockFileUtils.getFileToLockNameFromLock(lockNameForAcquirer);
+        acquire(FileLockInfo.getLockInfoBuilder().withFileToLock(fileToLockName)
+            .withAcquirerId(clonedResourceId).build());
     }
 }

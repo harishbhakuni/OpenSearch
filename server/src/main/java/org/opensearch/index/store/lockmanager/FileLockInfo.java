@@ -8,6 +8,7 @@
 
 package org.opensearch.index.store.lockmanager;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -54,9 +55,11 @@ public class FileLockInfo implements LockInfo {
         if (acquirerId == null || acquirerId.isBlank()) {
             throw new IllegalArgumentException("Acquirer ID should be provided");
         }
-        return Arrays.stream(lockFiles)
+        List<String> locksForAcquirer = Arrays.stream(lockFiles)
             .filter(lockFile -> acquirerId.equals(LockFileUtils.getAcquirerIdFromLock(lockFile)))
             .collect(Collectors.toList());
+        assert locksForAcquirer.size() == 1 : "Multiple lock files found for acquirer";
+        return locksForAcquirer;
     }
 
     public static LockInfoBuilder getLockInfoBuilder() {

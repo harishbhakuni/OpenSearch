@@ -112,9 +112,9 @@ import org.opensearch.index.snapshots.blobstore.SlicedInputStream;
 import org.opensearch.index.snapshots.blobstore.SnapshotFiles;
 import org.opensearch.index.store.Store;
 import org.opensearch.index.store.StoreFileMetadata;
+import org.opensearch.index.store.lockmanager.FileLockInfo;
 import org.opensearch.index.store.lockmanager.RemoteStoreLockManagerFactory;
 import org.opensearch.index.store.lockmanager.RemoteStoreMetadataLockManager;
-import org.opensearch.index.store.lockmanager.ShardLockInfo;
 import org.opensearch.indices.recovery.RecoverySettings;
 import org.opensearch.indices.recovery.RecoveryState;
 import org.opensearch.repositories.IndexId;
@@ -565,25 +565,27 @@ public abstract class BlobStoreRepository extends AbstractLifecycleComponent imp
             }
             else {
                 newGen = UUIDs.randomBase64UUID();
-                BlobStoreRemStoreBasedIndexShardSnapshot remStoreBasedShardMetadata = loadRemStoreEnabledShardSnapshot(shardContainer, source);
-                REM_STORE_BASED_INDEX_SHARD_SNAPSHOT_FORMAT.write(
-                    remStoreBasedShardMetadata.asClone(target.getName(), startTime, threadPool.absoluteTimeInMillis() - startTime),
-                    shardContainer,
-                    target.getUUID(),
-                    compress
-                );
-                String indexUUID = remStoreBasedShardMetadata.getIndexUUID();
-                String remoteStoreRepository = remStoreBasedShardMetadata.getRemoteStoreRepository();
-                RemoteStoreMetadataLockManager remoteStoreMetadataLockManger = remoteStoreLockManagerFactory
-                    .newLockManager(remoteStoreRepository, indexUUID, String.valueOf(shardId.shardId()));
-
-                remoteStoreMetadataLockManger.cloneLock(
-                    ShardLockInfo.getLockInfoBuilder().withResourceId(source.getUUID()).build(),
-                    ShardLockInfo.getLockInfoBuilder().
-                        withResourceId(target.getUUID()).
-                        withExpiryTime(REMOTE_STORE_INDEX_LOCK_TTL.get(metadata.settings()))
-                        .build()
-                );
+                try {
+                    RemoteStoreShardShallowCopySnapshot remStoreBasedShardMetadata = loadRemStoreEnabledShardSnapshot(shardContainer, source);
+                    REMOTE_STORE_SHARD_SHALLOW_COPY_SNAPSHOT_FORMAT.write(
+                        remStoreBasedShardMetadata.asClone(target.getName(), startTime, threadPool.absoluteTimeInMillis() - startTime),
+                        shardContainer,
+                        target.getUUID(),
+                        compress
+                    );
+                    String indexUUID = remStoreBasedShardMetadata.getIndexUUID();
+                    String remoteStoreRepository = remStoreBasedShardMetadata.getRemoteStoreRepository();
+                    RemoteStoreMetadataLockManager remoteStoreMetadataLockManger = remoteStoreLockManagerFactory
+                        .newLockManager(remoteStoreRepository, indexUUID, String.valueOf(shardId.shardId()));
+                    remoteStoreMetadataLockManger.cloneLock(
+                        FileLockInfo.getLockInfoBuilder().withAcquirerId(source.getUUID()).build(),
+                        FileLockInfo.getLockInfoBuilder().
+                            withAcquirerId(target.getUUID()).build()
+                    );
+                }
+                catch (Exception e) {
+                    logger.info(e);
+                }
             }
             return newGen;
         }));
@@ -1125,7 +1127,7 @@ public abstract class BlobStoreRepository extends AbstractLifecycleComponent imp
                 try {
                     IndexMetadata indexMetadata = this.getSnapshotIndexMetaData(repositoryData,
                         snapshotId, indexId);
-                    if (this.getSnapshotInfo(snapshotId).isRemoteStoreInteropEnabled()
+                    if (this.getSnapshotInfo(snapshotId).isRemoteStoreIndexShallowCopyEnabled()
                         && indexMetadata.getSettings().getAsBoolean(
                         IndexMetadata.SETTING_REMOTE_STORE_ENABLED,
                         false)) {
@@ -1137,7 +1139,7 @@ public abstract class BlobStoreRepository extends AbstractLifecycleComponent imp
                             RemoteStoreMetadataLockManager remoteStoreMetadataLockManager = remoteStoreLockManagerFactory
                                 .newLockManager(remoteStoreRepoForIndex, indexUUID, String.valueOf(finalShardId));
                             remoteStoreMetadataLockManager.release(
-                                ShardLockInfo.getLockInfoBuilder().withResourceId(snapshotId.getUUID()).build()
+                                FileLockInfo.getLockInfoBuilder().withAcquirerId(snapshotId.getUUID()).build()
                             );
                         }
                     }
@@ -2872,9 +2874,7 @@ public abstract class BlobStoreRepository extends AbstractLifecycleComponent imp
             ); // Not adding a real generation here as it doesn't matter to callers
         }
         else {
-            logger.info("Reading rem shard snapshot");
-            BlobStoreRemStoreBasedIndexShardSnapshot snapshot = loadRemStoreEnabledShardSnapshot(shardContainer(indexId, shardId), snapshotId);
-            logger.info("Done reading rem shard snapshot");
+            RemoteStoreShardShallowCopySnapshot snapshot = loadRemStoreEnabledShardSnapshot(shardContainer(indexId, shardId), snapshotId);
             return IndexShardSnapshotStatus.newDone(
                 snapshot.startTime(),
                 snapshot.time(),

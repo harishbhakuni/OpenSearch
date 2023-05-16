@@ -252,7 +252,7 @@ public class InternalSnapshotsInfoService implements ClusterStateListener, Snaps
                 final boolean isRemoteIndexShard = indexMetadata.getSettings().getAsBoolean(
                     IndexMetadata.SETTING_REMOTE_STORE_ENABLED,
                     false) &&
-                    repository.getSnapshotInfo(snapshotShard.snapshot.getSnapshotId()).isRemoteStoreInteropEnabled();
+                    repository.getSnapshotInfo(snapshotShard.snapshot.getSnapshotId()).isRemoteStoreIndexShallowCopyEnabled();
 
                 logger.debug("fetching snapshot shard size for {}", snapshotShard);
                 final long snapshotShardSize = repository.getShardSnapshotStatus(

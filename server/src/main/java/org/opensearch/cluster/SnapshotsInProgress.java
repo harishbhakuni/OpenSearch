@@ -156,7 +156,6 @@ public class SnapshotsInProgress extends AbstractNamedDiffable<Custom> implement
         return new SnapshotsInProgress.Entry(
             snapshot,
             true,
-            isRemoteStoreInteropEnabled,
             false,
             State.STARTED,
             indices,
@@ -169,7 +168,7 @@ public class SnapshotsInProgress extends AbstractNamedDiffable<Custom> implement
             version,
             source,
             Map.of(),
-            false // TODO: need to pull this value from the original snapshot, use whatever we set during snapshot create.
+            isRemoteStoreInteropEnabled
         );
     }
 

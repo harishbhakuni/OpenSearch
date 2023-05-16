@@ -74,7 +74,6 @@ public abstract class BaseFuture<V> implements Future<V> {
      *
      * @throws InterruptedException  if the current thread was interrupted before
      *                               or during the call (optional but recommended).
-     * @throws CancellationException {@inheritDoc}
      */
     @Override
     public V get(long timeout, TimeUnit unit) throws InterruptedException, TimeoutException, ExecutionException {
@@ -96,7 +95,6 @@ public abstract class BaseFuture<V> implements Future<V> {
      *
      * @throws InterruptedException  if the current thread was interrupted before
      *                               or during the call (optional but recommended).
-     * @throws CancellationException {@inheritDoc}
      */
     @Override
     public V get() throws InterruptedException, ExecutionException {

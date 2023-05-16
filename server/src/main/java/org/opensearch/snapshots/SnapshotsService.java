@@ -482,7 +482,7 @@ public class SnapshotsService extends AbstractLifecycleComponent implements Clus
                             + "]"
                     );
                 }
-                final boolean isRemoteStoreInteropEnabled = repository.getSnapshotInfo(sourceSnapshotId).isRemoteStoreInteropEnabled();
+                final boolean isRemoteStoreInteropEnabled = repository.getSnapshotInfo(sourceSnapshotId).isRemoteStoreIndexShallowCopyEnabled();
                 newEntry = SnapshotsInProgress.startClone(
                     snapshot,
                     sourceSnapshotId,
@@ -683,7 +683,7 @@ public class SnapshotsService extends AbstractLifecycleComponent implements Clus
                 try {
                     RemoteStoreLockManagerFactory remoteStoreLockManagerFactory = null;
                     final IndexMetadata indexMetadata = repository.getSnapshotIndexMetaData(repositoryData, sourceSnapshot, repoShardId.index());
-                    final boolean isRemoteStoreInteropEnabled = repository.getSnapshotInfo(sourceSnapshot).isRemoteStoreInteropEnabled();
+                    final boolean isRemoteStoreInteropEnabled = repository.getSnapshotInfo(sourceSnapshot).isRemoteStoreIndexShallowCopyEnabled();
                     if (isRemoteStoreInteropEnabled
                         && indexMetadata.getSettings().getAsBoolean(IndexMetadata.SETTING_REMOTE_STORE_ENABLED,
                         false)
