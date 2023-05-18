@@ -140,6 +140,7 @@ public class SnapshotsInProgress extends AbstractNamedDiffable<Custom> implement
      * @param startTime start time
      * @param repositoryStateId repository state id that this clone is based on
      * @param version repository metadata version to write
+     * @param remoteStoreIndexShallowCopy if it is a shallow snapshot
      * @return snapshot clone entry
      */
     public static Entry startClone(
@@ -149,7 +150,7 @@ public class SnapshotsInProgress extends AbstractNamedDiffable<Custom> implement
         long startTime,
         long repositoryStateId,
         Version version,
-        boolean isRemoteStoreInteropEnabled
+        boolean remoteStoreIndexShallowCopy
     ) {
         return new SnapshotsInProgress.Entry(
             snapshot,
@@ -166,7 +167,7 @@ public class SnapshotsInProgress extends AbstractNamedDiffable<Custom> implement
             version,
             source,
             Map.of(),
-            isRemoteStoreInteropEnabled
+            remoteStoreIndexShallowCopy
         );
     }
 

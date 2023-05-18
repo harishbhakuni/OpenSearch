@@ -215,7 +215,7 @@ public class FilterRepository implements Repository {
     }
 
     @Override
-    public void cloneShardSnapshot(
+    public void cloneRemoteStoreIndexShardSnapshot(
         SnapshotId source,
         SnapshotId target,
         RepositoryShardId shardId,
@@ -223,7 +223,18 @@ public class FilterRepository implements Repository {
         RemoteStoreLockManagerFactory remoteStoreLockManagerFactory,
         ActionListener<String> listener
     ) {
-        in.cloneShardSnapshot(source, target, shardId, shardGeneration, remoteStoreLockManagerFactory, listener);
+        in.cloneRemoteStoreIndexShardSnapshot(source, target, shardId, shardGeneration, remoteStoreLockManagerFactory, listener);
+    }
+
+    @Override
+    public void cloneShardSnapshot(
+        SnapshotId source,
+        SnapshotId target,
+        RepositoryShardId shardId,
+        String shardGeneration,
+        ActionListener<String> listener
+    ) {
+        in.cloneShardSnapshot(source, target, shardId, shardGeneration, listener);
     }
 
     @Override
