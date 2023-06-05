@@ -140,7 +140,6 @@ public class SnapshotsInProgress extends AbstractNamedDiffable<Custom> implement
      * @param startTime start time
      * @param repositoryStateId repository state id that this clone is based on
      * @param version repository metadata version to write
-     * @param remoteStoreIndexShallowCopy if it is a shallow snapshot
      * @return snapshot clone entry
      */
     public static Entry startClone(
@@ -149,8 +148,7 @@ public class SnapshotsInProgress extends AbstractNamedDiffable<Custom> implement
         List<IndexId> indices,
         long startTime,
         long repositoryStateId,
-        Version version,
-        boolean remoteStoreIndexShallowCopy
+        Version version
     ) {
         return new SnapshotsInProgress.Entry(
             snapshot,
@@ -167,7 +165,8 @@ public class SnapshotsInProgress extends AbstractNamedDiffable<Custom> implement
             version,
             source,
             Map.of(),
-            remoteStoreIndexShallowCopy
+            false // initialising to false, will be updated in startCloning method of SnapshotsService while updating entry with
+                  // clone jobs
         );
     }
 
@@ -435,6 +434,29 @@ public class SnapshotsInProgress extends AbstractNamedDiffable<Custom> implement
                 version,
                 source,
                 updatedClones
+            );
+        }
+
+        public Entry withRemoteStoreIndexShallowCopy(final boolean remoteStoreIndexShallowCopy) {
+            if (remoteStoreIndexShallowCopy == this.remoteStoreIndexShallowCopy) {
+                return this;
+            }
+            return new Entry(
+                snapshot,
+                includeGlobalState,
+                partial,
+                state,
+                indices,
+                dataStreams,
+                startTime,
+                repositoryStateId,
+                shards,
+                failure,
+                userMetadata,
+                version,
+                source,
+                clones,
+                remoteStoreIndexShallowCopy
             );
         }
 
