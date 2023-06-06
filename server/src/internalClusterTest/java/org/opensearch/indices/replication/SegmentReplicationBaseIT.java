@@ -17,8 +17,8 @@ import org.opensearch.cluster.routing.IndexRoutingTable;
 import org.opensearch.cluster.routing.IndexShardRoutingTable;
 import org.opensearch.cluster.routing.ShardRouting;
 import org.opensearch.common.Nullable;
-import org.opensearch.common.lease.Releasable;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.core.common.lease.Releasable;
 import org.opensearch.index.Index;
 import org.opensearch.index.IndexModule;
 import org.opensearch.index.IndexService;
@@ -93,10 +93,6 @@ public class SegmentReplicationBaseIT extends OpenSearchIntegTestCase {
         for (String node : nodeNames) {
             assertHitCount(client(node).prepareSearch(INDEX_NAME).setSize(0).setPreference("_only_local").get(), expectedDocCount);
         }
-    }
-
-    protected ClusterState getClusterState() {
-        return client(internalCluster().getClusterManagerName()).admin().cluster().prepareState().get().getState();
     }
 
     protected DiscoveryNode getNodeContainingPrimaryShard() {

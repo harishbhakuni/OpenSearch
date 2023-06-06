@@ -34,7 +34,7 @@ import static org.opensearch.test.hamcrest.OpenSearchAssertions.assertAcked;
 import static org.opensearch.test.hamcrest.OpenSearchAssertions.assertHitCount;
 
 @OpenSearchIntegTestCase.ClusterScope(scope = OpenSearchIntegTestCase.Scope.TEST, numDataNodes = 0)
-public class RemoteStoreIT extends RemoteStoreBaseIT {
+public class RemoteStoreIT extends RemoteStoreBaseIntegTestCase {
 
     private static final String INDEX_NAME = "remote-store-test-idx-1";
     private static final String TOTAL_OPERATIONS = "total-operations";
@@ -50,22 +50,6 @@ public class RemoteStoreIT extends RemoteStoreBaseIT {
     @Override
     public Settings indexSettings() {
         return remoteStoreIndexSettings(0);
-    }
-
-    private Settings remoteStoreIndexSettings(int numberOfReplicas) {
-        return Settings.builder()
-            .put(super.indexSettings())
-            .put(IndexMetadata.SETTING_NUMBER_OF_SHARDS, 1)
-            .put(IndexMetadata.SETTING_NUMBER_OF_REPLICAS, numberOfReplicas)
-            .build();
-    }
-
-    private Settings remoteTranslogIndexSettings(int numberOfReplicas) {
-        return Settings.builder()
-            .put(remoteStoreIndexSettings(numberOfReplicas))
-            .put(IndexMetadata.SETTING_REMOTE_TRANSLOG_STORE_ENABLED, true)
-            .put(IndexMetadata.SETTING_REMOTE_TRANSLOG_STORE_REPOSITORY, REPOSITORY_NAME)
-            .build();
     }
 
     private IndexResponse indexSingleDoc() {
