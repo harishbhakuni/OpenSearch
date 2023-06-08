@@ -4570,8 +4570,7 @@ public class IndexShard extends AbstractIndexShardComponent implements IndicesCl
                 storeDirectory = store.directory();
             }
             Set<String> localSegmentFiles = Sets.newHashSet(storeDirectory.listAll());
-            copySegmentFiles(storeDirectory, remoteSegmentStoreDirectory, null, uploadedSegments,
-                overrideLocal);
+            copySegmentFiles(storeDirectory, remoteSegmentStoreDirectory, null, uploadedSegments, overrideLocal);
 
             if (refreshLevelSegmentSync && remoteSegmentMetadata != null) {
                 try (
@@ -4650,24 +4649,24 @@ public class IndexShard extends AbstractIndexShardComponent implements IndicesCl
         store.incRef();
 
         try {
-            copySegmentFiles(storeDirectory,
-                sourceRemoteSegmentDirectory, remoteSegmentStoreDirectory, uploadedSegments,
-                overrideLocal);
+            copySegmentFiles(storeDirectory, sourceRemoteSegmentDirectory, remoteSegmentStoreDirectory, uploadedSegments, overrideLocal);
         } catch (IOException e) {
             throw new IndexShardRecoveryException(shardId, "Exception while copying segment files from remote segment store", e);
         } finally {
             store.decRef();
-            if (remoteStore!=null) {
+            if (remoteStore != null) {
                 remoteStore.incRef();
             }
         }
     }
 
-    private void copySegmentFiles(Directory storeDirectory,
-                                                           RemoteSegmentStoreDirectory sourceRemoteDirectory,
-                                                           RemoteSegmentStoreDirectory targetRemoteDirectory,
-                                                           Map<String, RemoteSegmentStoreDirectory.UploadedSegmentMetadata> uploadedSegments,
-                                                           boolean overrideLocal) throws IOException {
+    private void copySegmentFiles(
+        Directory storeDirectory,
+        RemoteSegmentStoreDirectory sourceRemoteDirectory,
+        RemoteSegmentStoreDirectory targetRemoteDirectory,
+        Map<String, RemoteSegmentStoreDirectory.UploadedSegmentMetadata> uploadedSegments,
+        boolean overrideLocal
+    ) throws IOException {
         List<String> downloadedSegments = new ArrayList<>();
         List<String> skippedSegments = new ArrayList<>();
 
