@@ -132,6 +132,7 @@ import java.util.stream.Stream;
 import static java.util.Collections.emptySet;
 import static java.util.Collections.unmodifiableList;
 import static org.opensearch.cluster.SnapshotsInProgress.completed;
+import static org.opensearch.repositories.blobstore.BlobStoreRepository.REMOTE_STORE_INDEX_SHALLOW_COPY;
 import static org.opensearch.snapshots.SnapshotUtils.validateSnapshotsBackingAnyIndex;
 
 /**
@@ -267,6 +268,7 @@ public class SnapshotsService extends AbstractLifecycleComponent implements Clus
         // retries
         final SnapshotId snapshotId = new SnapshotId(snapshotName, UUIDs.randomBase64UUID()); // new UUID for the snapshot
         Repository repository = repositoriesService.repository(request.repository());
+
         if (repository.isReadOnly()) {
             listener.onFailure(new RepositoryException(repository.getMetadata().name(), "cannot create snapshot in a readonly repository"));
             return;
@@ -340,6 +342,8 @@ public class SnapshotsService extends AbstractLifecycleComponent implements Clus
                         );
                     }
                 }
+
+                boolean remoteStoreIndexShallowCopy = REMOTE_STORE_INDEX_SHALLOW_COPY.get(repository.getMetadata().settings());
                 newEntry = SnapshotsInProgress.startedEntry(
                     new Snapshot(repositoryName, snapshotId),
                     request.includeGlobalState(),
@@ -350,7 +354,8 @@ public class SnapshotsService extends AbstractLifecycleComponent implements Clus
                     repositoryData.getGenId(),
                     shards,
                     userMeta,
-                    version
+                    version,
+                    remoteStoreIndexShallowCopy
                 );
                 final List<SnapshotsInProgress.Entry> newEntries = new ArrayList<>(runningSnapshots);
                 newEntries.add(newEntry);
@@ -1461,7 +1466,8 @@ public class SnapshotsService extends AbstractLifecycleComponent implements Clus
                 entry.partial() ? shardGenerations.totalShards() : entry.shards().size(),
                 shardFailures,
                 entry.includeGlobalState(),
-                entry.userMetadata()
+                entry.userMetadata(),
+                entry.remoteStoreIndexShallowCopy()
             );
             final StepListener<Metadata> metadataListener = new StepListener<>();
             final Repository repo = repositoriesService.repository(snapshot.getRepository());
