@@ -408,7 +408,7 @@ public class RemoteStoreShardShallowCopySnapshot implements ToXContentFragment {
             throw new IllegalArgumentException(exceptionStr);
         }
     }
-  
+
     /**
      * Creates a new instance which has a different name and zero incremental file counts but is identical to this instance in terms of the files
      * it references.
@@ -425,8 +425,8 @@ public class RemoteStoreShardShallowCopySnapshot implements ToXContentFragment {
             commitGeneration,
             startTime,
             time,
-            0,
-            0,
+            totalFileCount,
+            totalSize,
             indexUUID,
             remoteStoreRepository,
             repositoryBasePath,

@@ -500,9 +500,9 @@ public abstract class AbstractSnapshotIntegTestCase extends OpenSearchIntegTestC
             .build();
     }
 
-    protected Settings.Builder snapshotRepoSettingsForShallowCopy() {
+    protected Settings.Builder snapshotRepoSettingsForShallowCopy(Path path) {
         final Settings.Builder settings = Settings.builder();
-        settings.put("location", randomRepoPath());
+        settings.put("location", path);
         settings.put(BlobStoreRepository.REMOTE_STORE_INDEX_SHALLOW_COPY.getKey(), Boolean.TRUE);
         return settings;
     }
@@ -531,6 +531,7 @@ public abstract class AbstractSnapshotIntegTestCase extends OpenSearchIntegTestC
             return lockDirectory.listAll();
         }
     }
+
     /**
      * Adds a snapshot in state {@link SnapshotState#FAILED} to the given repository.
      *
