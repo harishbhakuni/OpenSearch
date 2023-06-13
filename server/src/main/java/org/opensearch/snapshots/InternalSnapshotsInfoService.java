@@ -36,11 +36,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.action.ActionListener;
-import org.opensearch.action.StepListener;
 import org.opensearch.cluster.ClusterChangedEvent;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.ClusterStateListener;
-import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.routing.RecoverySource;
 import org.opensearch.cluster.routing.RerouteService;
@@ -53,11 +51,9 @@ import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.AbstractRunnable;
 import org.opensearch.index.shard.ShardId;
-import org.opensearch.index.snapshots.IndexShardSnapshotStatus;
 import org.opensearch.repositories.IndexId;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.repositories.Repository;
-import org.opensearch.repositories.RepositoryData;
 import org.opensearch.threadpool.ThreadPool;
 
 import java.util.Collections;
@@ -69,7 +65,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
-import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
@@ -241,56 +236,31 @@ public class InternalSnapshotsInfoService implements ClusterStateListener, Snaps
             assert repositories != null;
             final Repository repository = repositories.repository(snapshotShard.snapshot.getRepository());
 
-            final Consumer<Exception> onFailure = e -> onFailure(e);
+            logger.debug("fetching snapshot shard size for {}", snapshotShard);
+            final long snapshotShardSize = repository.getShardSnapshotStatus(
+                snapshotShard.snapshot().getSnapshotId(),
+                snapshotShard.index(),
+                snapshotShard.shardId()
+            ).asCopy().getTotalSize();
 
-            final StepListener<RepositoryData> repositoryDataListener = new StepListener<>();
-            repositories.getRepositoryData(snapshotShard.snapshot.getRepository(), repositoryDataListener);
-            repositoryDataListener.whenComplete(repositoryData -> {
-                final IndexMetadata indexMetadata = repository.getSnapshotIndexMetaData(
-                    repositoryData,
-                    snapshotShard.snapshot.getSnapshotId(),
-                    snapshotShard.index
-                );
-                final boolean isRemoteIndexShard = indexMetadata.getSettings()
-                    .getAsBoolean(IndexMetadata.SETTING_REMOTE_STORE_ENABLED, false)
-                    && repository.getSnapshotInfo(snapshotShard.snapshot.getSnapshotId()).isRemoteStoreIndexShallowCopyEnabled();
+            logger.debug("snapshot shard size for {}: {} bytes", snapshotShard, snapshotShardSize);
 
-                logger.debug("fetching snapshot shard size for {}", snapshotShard);
-                final IndexShardSnapshotStatus shardSnapshotStatus;
-                if (isRemoteIndexShard) {
-                    shardSnapshotStatus = repository.getShallowShardSnapshotStatus(
-                        snapshotShard.snapshot().getSnapshotId(),
-                        snapshotShard.index(),
-                        snapshotShard.shardId()
-                    );
-                } else {
-                    shardSnapshotStatus = repository.getShardSnapshotStatus(
-                        snapshotShard.snapshot().getSnapshotId(),
-                        snapshotShard.index(),
-                        snapshotShard.shardId()
-                    );
+            boolean updated = false;
+            synchronized (mutex) {
+                removed = unknownSnapshotShards.remove(snapshotShard);
+                assert removed : "snapshot shard to remove does not exist " + snapshotShardSize;
+                if (isMaster) {
+                    final Map<SnapshotShard, Long> newSnapshotShardSizes = new HashMap<>(knownSnapshotShards);
+                    updated = newSnapshotShardSizes.put(snapshotShard, snapshotShardSize) == null;
+                    assert updated : "snapshot shard size already exists for " + snapshotShard;
+                    knownSnapshotShards = Collections.unmodifiableMap(newSnapshotShardSizes);
                 }
-                final long snapshotShardSize = shardSnapshotStatus.asCopy().getTotalSize();
-
-                logger.debug("snapshot shard size for {}: {} bytes", snapshotShard, snapshotShardSize);
-
-                boolean updated = false;
-                synchronized (mutex) {
-                    removed = unknownSnapshotShards.remove(snapshotShard);
-                    assert removed : "snapshot shard to remove does not exist " + snapshotShardSize;
-                    if (isMaster) {
-                        final Map<SnapshotShard, Long> newSnapshotShardSizes = new HashMap<>(knownSnapshotShards);
-                        updated = newSnapshotShardSizes.put(snapshotShard, snapshotShardSize) == null;
-                        assert updated : "snapshot shard size already exists for " + snapshotShard;
-                        knownSnapshotShards = Collections.unmodifiableMap(newSnapshotShardSizes);
-                    }
-                    activeFetches -= 1;
-                    assert invariant();
-                }
-                if (updated) {
-                    rerouteService.get().reroute("snapshot shard size updated", Priority.HIGH, REROUTE_LISTENER);
-                }
-            }, onFailure);
+                activeFetches -= 1;
+                assert invariant();
+            }
+            if (updated) {
+                rerouteService.get().reroute("snapshot shard size updated", Priority.HIGH, REROUTE_LISTENER);
+            }
         }
 
         @Override
