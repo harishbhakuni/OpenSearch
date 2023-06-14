@@ -539,6 +539,13 @@ public abstract class AbstractSnapshotIntegTestCase extends OpenSearchIntegTestC
             .build();
     }
 
+    protected Settings.Builder snapshotRepoSettingsForShallowCopy(Path path) {
+        final Settings.Builder settings = Settings.builder();
+        settings.put("location", path);
+        settings.put(BlobStoreRepository.REMOTE_STORE_INDEX_SHALLOW_COPY.getKey(), Boolean.TRUE);
+        return settings;
+    }
+
     protected long getCountForIndex(String indexName) {
         return client().search(
             new SearchRequest(new SearchRequest(indexName).source(new SearchSourceBuilder().size(0).trackTotalHits(true)))
