@@ -3403,7 +3403,6 @@ public class IndexShard extends AbstractIndexShardComponent implements IndicesCl
                     executeRecovery("from snapshot (remote)", recoveryState, recoveryListener, this::recoverFromStore);
                 } else if (recoverySource.remoteStoreIndexShallowCopy()) {
                     final String repo = recoverySource.snapshot().getRepository();
-
                     executeRecovery(
                         "from snapshot and remote store",
                         recoveryState,
