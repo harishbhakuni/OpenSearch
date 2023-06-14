@@ -152,6 +152,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -2801,16 +2802,60 @@ public abstract class BlobStoreRepository extends AbstractLifecycleComponent imp
 
     @Override
     public IndexShardSnapshotStatus getShardSnapshotStatus(SnapshotId snapshotId, IndexId indexId, ShardId shardId) {
-        BlobStoreIndexShardSnapshot snapshot = loadShardSnapshot(shardContainer(indexId, shardId), snapshotId);
-        return IndexShardSnapshotStatus.newDone(
-            snapshot.startTime(),
-            snapshot.time(),
-            snapshot.incrementalFileCount(),
-            snapshot.totalFileCount(),
-            snapshot.incrementalSize(),
-            snapshot.totalSize(),
-            null
-        ); // Not adding a real generation here as it doesn't matter to callers
+        final StepListener<RepositoryData> repoDataListener = new StepListener<>();
+        getRepositoryData(repoDataListener);
+        AtomicBoolean isRemoteIndexShard = new AtomicBoolean(false);
+        repoDataListener.whenComplete(repositoryData -> {
+            // Check if Index meta-N file is written, then read that file to check if this is a remote store enabled index or not. If the
+            // file is absent, get the info from cluster state.
+            BlobContainer indexContainer = indexContainer(indexId);
+            String indexMetaFile = METADATA_PREFIX
+                + repositoryData.indexMetaDataGenerations().indexMetaBlobId(snapshotId, indexId)
+                + ".dat";
+            final IndexMetadata indexMetadata;
+            Map<String, BlobMetadata> indexMetaFiles = indexContainer.listBlobsByPrefix(METADATA_PREFIX);
+            if (indexMetaFiles.containsKey(indexMetaFile)) {
+                indexMetadata = getSnapshotIndexMetaData(repositoryData, snapshotId, indexId);
+            } else {
+                indexMetadata = clusterService.state().metadata().index(indexId.getName());
+            }
+            isRemoteIndexShard.set(
+                indexMetadata.getSettings().getAsBoolean(IndexMetadata.SETTING_REMOTE_STORE_ENABLED, false)
+                    && Boolean.TRUE.equals(getSnapshotInfo(snapshotId).isRemoteStoreIndexShallowCopyEnabled())
+            );
+        },
+            e -> logger.warn(
+                "Exception [{}] while getting the repository data to fetch shard snapshot status for snapshotId [{}], indexId [{}] and shardId [{}]",
+                e,
+                snapshotId,
+                indexId,
+                shardId
+            )
+        );
+
+        if (!isRemoteIndexShard.get()) {
+            BlobStoreIndexShardSnapshot snapshot = loadShardSnapshot(shardContainer(indexId, shardId), snapshotId);
+            return IndexShardSnapshotStatus.newDone(
+                snapshot.startTime(),
+                snapshot.time(),
+                snapshot.incrementalFileCount(),
+                snapshot.totalFileCount(),
+                snapshot.incrementalSize(),
+                snapshot.totalSize(),
+                null
+            ); // Not adding a real generation here as it doesn't matter to callers
+        } else {
+            RemoteStoreShardShallowCopySnapshot snapshot = loadShallowCopyShardSnapshot(shardContainer(indexId, shardId), snapshotId);
+            return IndexShardSnapshotStatus.newDone(
+                snapshot.startTime(),
+                snapshot.time(),
+                snapshot.incrementalFileCount(),
+                snapshot.totalFileCount(),
+                snapshot.incrementalSize(),
+                snapshot.totalSize(),
+                null
+            ); // Not adding a real generation here as it doesn't matter to callers
+        }
     }
 
     @Override
