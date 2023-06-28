@@ -10,8 +10,6 @@ package org.opensearch.index.snapshots.blobstore;
 
 import org.opensearch.index.snapshots.IndexShardSnapshotStatus;
 
-import java.io.IOException;
-
 /**
  * Remote Store based Shard snapshot metadata
  *
