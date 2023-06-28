@@ -592,12 +592,6 @@ public final class RemoteSegmentStoreDirectory extends FilterDirectory implement
         );
         List<String> metadataFilesToBeDeleted = metadataFilesEligibleToDelete.stream().filter(metadataFile -> {
             try {
-                // TODO: add snapshot interop feature flag here as that will be the first feature to use lock
-                // manager.
-                boolean lockManagerEnabled = false;
-                if (!lockManagerEnabled) {
-                    return true;
-                }
                 return !isLockAcquired(
                     MetadataFilenameUtils.getPrimaryTerm(metadataFile.split(MetadataFilenameUtils.SEPARATOR)),
                     MetadataFilenameUtils.getGeneration(metadataFile.split(MetadataFilenameUtils.SEPARATOR))
